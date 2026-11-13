@@ -18,7 +18,9 @@ import java.util.Optional;
 public class ColaAtencionService {
 
     public static final String PENDIENTE = "PENDIENTE";
+    public static final String EN_ATENCION = "EN_ATENCION";
     public static final String ATENDIDO = "ATENDIDO";
+    public static final String CANCELADO = "CANCELADO";
 
     private static final Logger log = LoggerFactory.getLogger(ColaAtencionService.class);
 
@@ -33,117 +35,82 @@ public class ColaAtencionService {
 
     private void cargarPendientes() {
         long inicio = System.nanoTime();
-
         List<Paciente> pendientes = pacienteService.listarPacientes().stream()
                 .filter(p -> PENDIENTE.equals(p.getEstado()))
-                .sorted(Comparator.comparing(
-                        Paciente::getFechaHoraLlegada,
+                .sorted(Comparator.comparing(Paciente::getFechaHoraLlegada,
                         Comparator.nullsLast(Comparator.<LocalDateTime>naturalOrder())))
                 .toList();
 
         for (Paciente paciente : pendientes) {
-            try {
-                colaPrioridad.insertar(paciente);
-                colaLlegada.encolar(paciente);
-            } catch (IllegalArgumentException e) {
-                log.warn("Paciente {} no se cargó en la cola: {}", paciente.getCodigo(), e.getMessage());
-            }
+            colaPrioridad.insertar(paciente);
+            colaLlegada.encolar(paciente);
         }
-
-        log.info("[RENDIMIENTO] carga inicial de colas | pacientes={} | tiempo={} µs",
+        log.info("[RENDIMIENTO] reconstrucción de colas | pacientes={} | tiempo={} µs",
                 colaPrioridad.getTamaño(), (System.nanoTime() - inicio) / 1_000);
     }
 
     public synchronized Paciente registrarPaciente(Paciente paciente) {
         ComparadorPrioridad.nivelNumerico(paciente.getPrioridad());
-
         Paciente registrado = pacienteService.registrarPaciente(paciente);
-
         long inicio = System.nanoTime();
         colaPrioridad.insertar(registrado);
         colaLlegada.encolar(registrado);
-        long duracion = System.nanoTime() - inicio;
-
-        int posicion = posicionEnCola(registrado.getCodigo());
-        log.info("Paciente {} registrado con {} | posición en cola de atención={} de {} | posición por llegada={}",
-                registrado.getCodigo(), registrado.getPrioridad(), posicion,
-                colaPrioridad.getTamaño(), colaLlegada.getTamaño());
-        log.info("[RENDIMIENTO] inserción en colas | pacientes en cola={} | tiempo={} ns",
-                colaPrioridad.getTamaño(), duracion);
-
+        log.info("Paciente {} registrado | prioridad={} | posición={}/{}",
+                registrado.getCodigo(), registrado.getPrioridad(),
+                posicionEnCola(registrado.getCodigo()), colaPrioridad.getTamaño());
+        log.info("[RENDIMIENTO] inserción en colas | tiempo={} ns", System.nanoTime() - inicio);
         return registrado;
     }
 
+    /** Selecciona al más prioritario y lo pasa de PENDIENTE a EN_ATENCION. */
     public synchronized Paciente atenderSiguiente() {
-        Optional<Paciente> siguiente = colaPrioridad.verSiguiente();
-        if (siguiente.isEmpty()) {
-            log.info("Atención rechazada: no hay pacientes en espera");
-            throw new ColaVaciaException("No hay pacientes en espera");
-        }
-
-        Paciente paciente = siguiente.get();
-        paciente.setEstado(ATENDIDO);
-        try {
-            pacienteService.actualizarPaciente(paciente);
-        } catch (RuntimeException e) {
-            paciente.setEstado(PENDIENTE);
-            log.warn("No se pudo atender a {}: {}. Sigue en la cola", paciente.getCodigo(), e.getMessage());
-            throw e;
-        }
-
-        long inicio = System.nanoTime();
-        colaPrioridad.extraerSiguiente();
-        colaLlegada.eliminar(paciente.getCodigo());
-        long duracion = System.nanoTime() - inicio;
-
-        String quienSigue = colaPrioridad.verSiguiente()
-                .map(p -> p.getCodigo() + " (" + p.getPrioridad() + ")")
-                .orElse("nadie");
-        log.info("Atendido {} ({}, llegó {}) | criterio: nivel más urgente y, en empate, llegada más antigua | siguiente: {}",
-                paciente.getCodigo(), paciente.getPrioridad(), paciente.getFechaHoraLlegada(), quienSigue);
-        log.info("[RENDIMIENTO] extracción del siguiente | pacientes restantes={} | tiempo={} ns",
-                colaPrioridad.getTamaño(), duracion);
-
-        return paciente;
+        Paciente siguiente = colaPrioridad.verSiguiente()
+                .orElseThrow(() -> new ColaVaciaException("No hay pacientes pendientes"));
+        Paciente enAtencion = pacienteService.cambiarEstado(siguiente.getCodigo(), EN_ATENCION);
+        colaPrioridad.eliminar(enAtencion.getCodigo());
+        colaLlegada.eliminar(enAtencion.getCodigo());
+        log.info("Paciente {} pasó a EN_ATENCION | prioridad={} | llegada={}",
+                enAtencion.getCodigo(), enAtencion.getPrioridad(), enAtencion.getFechaHoraLlegada());
+        return enAtencion;
     }
 
+    public synchronized Paciente finalizarAtencion(String codigo) {
+        Paciente atendido = pacienteService.cambiarEstado(codigo, ATENDIDO);
+        log.info("Atención finalizada para paciente {}", atendido.getCodigo());
+        return atendido;
+    }
+
+    public synchronized Paciente cancelarPaciente(String codigo) {
+        Paciente cancelado = pacienteService.cambiarEstado(codigo, CANCELADO);
+        colaPrioridad.eliminar(cancelado.getCodigo());
+        colaLlegada.eliminar(cancelado.getCodigo());
+        log.info("Paciente {} cancelado y retirado de las colas", cancelado.getCodigo());
+        return cancelado;
+    }
+
+    /** Solo modifica datos/prioridad mientras el paciente está PENDIENTE. */
     public synchronized Paciente actualizarPaciente(Paciente paciente) {
         ComparadorPrioridad.nivelNumerico(paciente.getPrioridad());
-
-        String codigo = paciente.getCodigo();
+        String codigo = PacienteService.normalizarCodigo(paciente.getCodigo());
         String prioridadAnterior = colaPrioridad.buscar(codigo)
-                .map(Paciente::getPrioridad)
-                .orElse(null);
+                .map(Paciente::getPrioridad).orElse(null);
 
         Paciente actualizado = pacienteService.actualizarPaciente(paciente);
-
         long inicio = System.nanoTime();
-        if (PENDIENTE.equals(actualizado.getEstado())) {
-            if (colaPrioridad.contiene(codigo)) {
-                colaPrioridad.actualizar(actualizado);
-            } else {
-                colaPrioridad.insertar(actualizado);
-                colaLlegada.encolar(actualizado);
-                log.info("Paciente {} vuelve a la cola de atención", codigo);
-            }
-        } else {
-            colaPrioridad.eliminar(codigo);
-            colaLlegada.eliminar(codigo);
+        if (!colaPrioridad.actualizar(actualizado)) {
+            throw new IllegalStateException("El paciente pendiente no estaba en la cola de prioridad");
         }
-        long duracion = System.nanoTime() - inicio;
-
-        if (prioridadAnterior != null && !prioridadAnterior.equals(actualizado.getPrioridad())) {
-            log.info("Reevaluación de {}: {} -> {} | nueva posición en cola={} de {}",
-                    codigo, prioridadAnterior, actualizado.getPrioridad(),
-                    posicionEnCola(codigo), colaPrioridad.getTamaño());
-            log.info("[RENDIMIENTO] reevaluación en cola de prioridad | pacientes en cola={} | tiempo={} ns",
-                    colaPrioridad.getTamaño(), duracion);
+        if (!colaLlegada.actualizar(actualizado)) {
+            throw new IllegalStateException("El paciente pendiente no estaba en la cola FIFO");
         }
-
+        log.info("Paciente {} actualizado en ambas colas | prioridad {} -> {}",
+                codigo, prioridadAnterior, actualizado.getPrioridad());
+        log.info("[RENDIMIENTO] reevaluación en estructuras | tiempo={} ns", System.nanoTime() - inicio);
         return actualizado;
     }
 
-    public synchronized boolean eliminarPaciente(String codigo) {
+    public synchronized boolean eliminarPaciente(String codigoEntrada) {
+        String codigo = PacienteService.normalizarCodigo(codigoEntrada);
         boolean eliminado = pacienteService.eliminarPaciente(codigo);
         if (eliminado) {
             colaPrioridad.eliminar(codigo);
@@ -164,9 +131,7 @@ public class ColaAtencionService {
     private int posicionEnCola(String codigo) {
         List<Paciente> orden = colaPrioridad.listarEnOrden();
         for (int i = 0; i < orden.size(); i++) {
-            if (orden.get(i).getCodigo().equals(codigo)) {
-                return i + 1;
-            }
+            if (orden.get(i).getCodigo().equals(codigo)) return i + 1;
         }
         return -1;
     }
