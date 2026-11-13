@@ -68,7 +68,7 @@ class PacienteServiceTest {
                 () -> pacienteService.registrarPaciente(paciente)
         );
 
-        assertEquals("El paciente ya está registrado", error.getMessage());
+        assertTrue(error.getMessage().contains("Ya existe un paciente activo"));
         verify(pacienteRepository, never()).save(any());
     }
 
@@ -114,7 +114,7 @@ class PacienteServiceTest {
     @Test
     void actualizarPacienteExistenteActualizaLaTablaHash() {
         simularGuardado();
-        when(pacienteRepository.existsByCodigoIgnoreCase("PX001")).thenReturn(false);\n        when(pacienteRepository.existsById("PX001")).thenReturn(true);
+        when(pacienteRepository.existsByCodigoIgnoreCase("PX001")).thenReturn(false);
         pacienteService.registrarPaciente(crearPaciente("PX001", "Carlos", 25));
 
         Paciente cambios = crearPaciente("PX001", "Carlos Andrés", 26);
@@ -147,7 +147,7 @@ class PacienteServiceTest {
     @Test
     void eliminarPacienteExistenteLoQuitaDeLaBaseYDeLaTablaHash() {
         simularGuardado();
-        when(pacienteRepository.existsById("PX001")).thenReturn(false, true);
+        when(pacienteRepository.existsByCodigoIgnoreCase("PX001")).thenReturn(false);\n        when(pacienteRepository.existsById("PX001")).thenReturn(true);
         pacienteService.registrarPaciente(crearPaciente("PX001", "Carlos", 25));
 
         assertTrue(pacienteService.eliminarPaciente("PX001"));
