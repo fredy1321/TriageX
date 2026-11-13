@@ -151,7 +151,6 @@ class PacienteServiceTest {
 
     @Test
     void actualizarPacienteInexistenteLanzaPacienteNoEncontrado() {
-        when(pacienteRepository.existsById("PX999")).thenReturn(false);
         Paciente paciente = crearPaciente("PX999", "Nadie", 30);
 
         assertThrows(PacienteNoEncontradoException.class,
@@ -165,6 +164,22 @@ class PacienteServiceTest {
                 () -> pacienteService.actualizarPaciente(crearPaciente(null, "Carlos", 25)));
         assertThrows(IllegalArgumentException.class,
                 () -> pacienteService.actualizarPaciente(null));
+    }
+
+    @Test
+    void soloPermiteTransicionesValidasDeEstado() {
+        simularGuardado();
+        when(pacienteRepository.existsByCodigoIgnoreCase("PX030")).thenReturn(false);
+        pacienteService.registrarPaciente(crearPaciente("PX030", "Paciente", 30));
+
+        assertThrows(IllegalArgumentException.class,
+                () -> pacienteService.cambiarEstado("PX030", "ATENDIDO"));
+        assertEquals("EN_ATENCION",
+                pacienteService.cambiarEstado("PX030", "EN_ATENCION").getEstado());
+        assertEquals("ATENDIDO",
+                pacienteService.cambiarEstado("PX030", "ATENDIDO").getEstado());
+        assertThrows(IllegalArgumentException.class,
+                () -> pacienteService.cambiarEstado("PX030", "CANCELADO"));
     }
 
     @Test
