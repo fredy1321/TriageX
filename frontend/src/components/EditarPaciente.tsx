@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { actualizarPaciente } from '../services/api'
-import { ESTADOS, PRIORIDADES } from '../types/paciente'
+import { PRIORIDADES } from '../types/paciente'
 import type { Paciente, Prioridad } from '../types/paciente'
 import { mensajeDeError, validarEdad, validarNombre } from '../utils/validaciones'
 
@@ -15,7 +15,6 @@ export default function EditarPaciente({ paciente, onGuardado, onCancelar }: Pro
   const [nombre, setNombre] = useState(paciente.nombre)
   const [edad, setEdad] = useState(String(paciente.edad))
   const [prioridad, setPrioridad] = useState<Prioridad>(paciente.prioridad)
-  const [estado, setEstado] = useState(paciente.estado)
   const [error, setError] = useState('')
   const [guardando, setGuardando] = useState(false)
 
@@ -36,7 +35,7 @@ export default function EditarPaciente({ paciente, onGuardado, onCancelar }: Pro
         nombre: nombre.trim(),
         edad: Number(edad),
         prioridad,
-        estado,
+        estado: paciente.estado,
       })
       onGuardado(actualizado)
     } catch (err) {
@@ -63,14 +62,6 @@ export default function EditarPaciente({ paciente, onGuardado, onCancelar }: Pro
           <select value={prioridad} onChange={(e) => setPrioridad(e.target.value as Prioridad)}>
             {PRIORIDADES.map((p) => (
               <option key={p} value={p}>{p}</option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Estado
-          <select value={estado} onChange={(e) => setEstado(e.target.value)}>
-            {ESTADOS.map((s) => (
-              <option key={s} value={s}>{s}</option>
             ))}
           </select>
         </label>
