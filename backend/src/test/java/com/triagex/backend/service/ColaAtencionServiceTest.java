@@ -12,6 +12,7 @@ import java.util.List;\nimport java.util.ArrayList;\nimport java.util.LinkedHash
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -125,8 +126,8 @@ class ColaAtencionServiceTest {
         Paciente atendido = servicio.atenderSiguiente();
 
         assertEquals("PX2", atendido.getCodigo());
-        assertEquals("ATENDIDO", atendido.getEstado());
-        verify(pacienteService).actualizarPaciente(urgente);
+        assertEquals("EN_ATENCION", atendido.getEstado());
+        verify(pacienteService).cambiarEstado("PX2", "EN_ATENCION");
         assertEquals(List.of("PX1", "PX3"), codigos(servicio.listarColaDeAtencion()));
         assertEquals(List.of("PX1", "PX3"), codigos(servicio.listarOrdenDeLlegada()));
     }
@@ -153,7 +154,7 @@ class ColaAtencionServiceTest {
     void siFallaElGuardadoAlAtenderElPacienteSigueEnLaCola() {
         ColaAtencionService servicio = crearServicio();
         servicio.registrarPaciente(pendiente("PX1", 1, 0));
-        when(pacienteService.actualizarPaciente(any(Paciente.class)))
+        when(pacienteService.cambiarEstado("PX1", "EN_ATENCION"))
                 .thenThrow(new RuntimeException("Base de datos no disponible"));
 
         assertThrows(RuntimeException.class, servicio::atenderSiguiente);
