@@ -1,6 +1,9 @@
 -- Ejecutar una sola vez en la base de datos triagex, con el backend detenido.
 -- Antes de actualizar códigos, se detiene si existen duplicados por mayúsculas/espacios.
 -- No elimina pacientes automáticamente: los duplicados deben revisarse manualmente.
+-- Para identificarlos antes de ejecutar:
+-- SELECT upper(btrim(codigo)) AS codigo_normalizado, array_agg(codigo), count(*)
+-- FROM pacientes GROUP BY upper(btrim(codigo)) HAVING count(*) > 1;
 
 DO $$
 DECLARE
@@ -23,6 +26,10 @@ END $$;
 UPDATE pacientes
 SET codigo = upper(btrim(codigo))
 WHERE codigo <> upper(btrim(codigo));
+
+-- Protege también contra inserciones manuales que no respeten mayúsculas/espacios.
+CREATE UNIQUE INDEX IF NOT EXISTS ux_pacientes_codigo_normalizado
+    ON pacientes (upper(btrim(codigo)));
 
 -- Los cuatro estados acordados para el MVP.
 DO $$
