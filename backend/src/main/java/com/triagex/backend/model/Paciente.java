@@ -19,6 +19,7 @@ public class Paciente {
     private LocalDateTime fechaHoraLlegada;
     private int edad;
     private String prioridad;
+    @Column(nullable = false)
     private String estado;
 
     // Constructor vacío
