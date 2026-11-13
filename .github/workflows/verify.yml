@@ -19,7 +19,9 @@ jobs:
           java-version: "21"
           cache: gradle
       - name: Run backend tests
-        run: ./backend/gradlew -p backend test
+        run: |
+          chmod +x backend/gradlew
+          ./backend/gradlew -p backend test
 
   frontend-build:
     runs-on: ubuntu-latest
