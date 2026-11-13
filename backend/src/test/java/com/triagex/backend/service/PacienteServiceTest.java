@@ -73,6 +73,29 @@ class PacienteServiceTest {
     }
 
     @Test
+    void normalizaCodigoAntesDeGuardarYBuscar() {
+        simularGuardado();
+        when(pacienteRepository.existsByCodigoIgnoreCase("PX020")).thenReturn(false);
+
+        Paciente registrado = pacienteService.registrarPaciente(
+                crearPaciente("  px020  ", "Prueba", 20));
+
+        assertEquals("PX020", registrado.getCodigo());
+        assertTrue(pacienteService.buscarPorCodigo(" px020 ").isPresent());
+    }
+
+    @Test
+    void tablaHashImpideDuplicadoConDiferenteCapitalizacion() {
+        simularGuardado();
+        when(pacienteRepository.existsByCodigoIgnoreCase("PX021")).thenReturn(false);
+        pacienteService.registrarPaciente(crearPaciente("PX021", "Original", 20));
+
+        assertThrows(IllegalArgumentException.class,
+                () -> pacienteService.registrarPaciente(crearPaciente("px021", "Duplicado", 21)));
+        verify(pacienteRepository, times(1)).save(any(Paciente.class));
+    }
+
+    @Test
     void registrarPacienteNuloLanzaExcepcion() {
         assertThrows(IllegalArgumentException.class, () -> pacienteService.registrarPaciente(null));
         verify(pacienteRepository, never()).save(any());
