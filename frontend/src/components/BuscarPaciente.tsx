@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
-import { buscarPaciente, eliminarPaciente } from '../services/api'
+import { buscarPaciente, eliminarPaciente, finalizarAtencion, cancelarPaciente } from '../services/api'
 import type { Paciente } from '../types/paciente'
 import { formatearFecha, mensajeDeError, validarCodigo } from '../utils/validaciones'
 import EditarPaciente from './EditarPaciente'
@@ -39,6 +39,38 @@ export default function BuscarPaciente({ onCambio }: Props) {
     setCargando(true)
     try {
       setPaciente(await buscarPaciente(codigo.trim()))
+    } catch (err) {
+      setError(mensajeDeError(err))
+    } finally {
+      setCargando(false)
+    }
+  }
+
+  async function manejarFinalizarAtencion() {
+    if (!paciente) return
+    limpiarMensajes()
+    setCargando(true)
+    try {
+      const actualizado = await finalizarAtencion(paciente.codigo)
+      setPaciente(actualizado)
+      setExito(`Atención finalizada para ${actualizado.codigo}`)
+      onCambio()
+    } catch (err) {
+      setError(mensajeDeError(err))
+    } finally {
+      setCargando(false)
+    }
+  }
+
+  async function manejarCancelarPaciente() {
+    if (!paciente) return
+    limpiarMensajes()
+    setCargando(true)
+    try {
+      const actualizado = await cancelarPaciente(paciente.codigo)
+      setPaciente(actualizado)
+      setExito(`Paciente ${actualizado.codigo} cancelado`)
+      onCambio()
     } catch (err) {
       setError(mensajeDeError(err))
     } finally {
@@ -95,11 +127,28 @@ export default function BuscarPaciente({ onCambio }: Props) {
           </dl>
           {!confirmandoEliminar ? (
             <div className="acciones">
-              <button type="button" onClick={() => { limpiarMensajes(); setEditando(true) }}>
-                Editar
-              </button>
-              <button type="button" className="peligro" onClick={() => setConfirmandoEliminar(true)}>
-                Eliminar
+              {paciente.estado === 'PENDIENTE' && (
+                <>
+                  <button type="button" onClick={() => { limpiarMensajes(); setEditando(true) }}>
+                    Editar / reevaluar
+                  </button>
+                  <button type="button" className="peligro" onClick={manejarCancelarPaciente} disabled={cargando}>
+                    Cancelar ingreso
+                  </button>
+                </>
+              )}
+              {paciente.estado === 'EN_ATENCION' && (
+                <>
+                  <button type="button" onClick={manejarFinalizarAtencion} disabled={cargando}>
+                    Finalizar atención
+                  </button>
+                  <button type="button" className="peligro" onClick={manejarCancelarPaciente} disabled={cargando}>
+                    Cancelar atención
+                  </button>
+                </>
+              )}
+              <button type="button" className="secundario" onClick={() => setConfirmandoEliminar(true)}>
+                Eliminar registro
               </button>
             </div>
           ) : (
