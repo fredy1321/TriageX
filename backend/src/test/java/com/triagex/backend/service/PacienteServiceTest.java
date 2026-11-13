@@ -147,7 +147,8 @@ class PacienteServiceTest {
     @Test
     void eliminarPacienteExistenteLoQuitaDeLaBaseYDeLaTablaHash() {
         simularGuardado();
-        when(pacienteRepository.existsByCodigoIgnoreCase("PX001")).thenReturn(false);\n        when(pacienteRepository.existsById("PX001")).thenReturn(true);
+        when(pacienteRepository.existsByCodigoIgnoreCase("PX001")).thenReturn(false);
+        when(pacienteRepository.existsById("PX001")).thenReturn(true);
         pacienteService.registrarPaciente(crearPaciente("PX001", "Carlos", 25));
 
         assertTrue(pacienteService.eliminarPaciente("PX001"));
