@@ -20,6 +20,14 @@ public class GlobalExceptionHandler {
                 .body(Map.of("error", excepcion.getMessage()));
     }
 
+    @ExceptionHandler(ColaVaciaException.class)
+    public ResponseEntity<Map<String, String>> manejarColaVacia(
+            ColaVaciaException excepcion) {
+
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(Map.of("error", excepcion.getMessage()));
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, String>> manejarDatosInvalidos(
             IllegalArgumentException excepcion) {
