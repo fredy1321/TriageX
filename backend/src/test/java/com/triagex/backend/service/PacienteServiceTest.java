@@ -49,7 +49,7 @@ class PacienteServiceTest {
     @Test
     void registrarPacienteValidoLoGuardaComoPendienteYQuedaEnLaTablaHash() {
         simularGuardado();
-        when(pacienteRepository.existsById("PX001")).thenReturn(false);
+        when(pacienteRepository.existsByCodigoIgnoreCase("PX001")).thenReturn(false);
 
         Paciente registrado = pacienteService.registrarPaciente(crearPaciente("PX001", "Carlos", 25));
 
@@ -60,7 +60,7 @@ class PacienteServiceTest {
 
     @Test
     void registrarPacienteDuplicadoLanzaExcepcionYNoGuarda() {
-        when(pacienteRepository.existsById("PX001")).thenReturn(true);
+        when(pacienteRepository.existsByCodigoIgnoreCase("PX001")).thenReturn(true);
         Paciente paciente = crearPaciente("PX001", "Carlos", 25);
 
         IllegalArgumentException error = assertThrows(
@@ -68,8 +68,31 @@ class PacienteServiceTest {
                 () -> pacienteService.registrarPaciente(paciente)
         );
 
-        assertEquals("El paciente ya está registrado", error.getMessage());
+        assertTrue(error.getMessage().contains("Ya existe un paciente activo"));
         verify(pacienteRepository, never()).save(any());
+    }
+
+    @Test
+    void normalizaCodigoAntesDeGuardarYBuscar() {
+        simularGuardado();
+        when(pacienteRepository.existsByCodigoIgnoreCase("PX020")).thenReturn(false);
+
+        Paciente registrado = pacienteService.registrarPaciente(
+                crearPaciente("  px020  ", "Prueba", 20));
+
+        assertEquals("PX020", registrado.getCodigo());
+        assertTrue(pacienteService.buscarPorCodigo(" px020 ").isPresent());
+    }
+
+    @Test
+    void tablaHashImpideDuplicadoConDiferenteCapitalizacion() {
+        simularGuardado();
+        when(pacienteRepository.existsByCodigoIgnoreCase("PX021")).thenReturn(false);
+        pacienteService.registrarPaciente(crearPaciente("PX021", "Original", 20));
+
+        assertThrows(IllegalArgumentException.class,
+                () -> pacienteService.registrarPaciente(crearPaciente("px021", "Duplicado", 21)));
+        verify(pacienteRepository, times(1)).save(any(Paciente.class));
     }
 
     @Test
@@ -104,7 +127,7 @@ class PacienteServiceTest {
     @Test
     void registrarPacienteConEdadCeroEsValido() {
         simularGuardado();
-        when(pacienteRepository.existsById("PX002")).thenReturn(false);
+        when(pacienteRepository.existsByCodigoIgnoreCase("PX002")).thenReturn(false);
 
         Paciente registrado = pacienteService.registrarPaciente(crearPaciente("PX002", "Bebé", 0));
 
@@ -114,7 +137,7 @@ class PacienteServiceTest {
     @Test
     void actualizarPacienteExistenteActualizaLaTablaHash() {
         simularGuardado();
-        when(pacienteRepository.existsById("PX001")).thenReturn(false, true);
+        when(pacienteRepository.existsByCodigoIgnoreCase("PX001")).thenReturn(false);
         pacienteService.registrarPaciente(crearPaciente("PX001", "Carlos", 25));
 
         Paciente cambios = crearPaciente("PX001", "Carlos Andrés", 26);
@@ -128,7 +151,6 @@ class PacienteServiceTest {
 
     @Test
     void actualizarPacienteInexistenteLanzaPacienteNoEncontrado() {
-        when(pacienteRepository.existsById("PX999")).thenReturn(false);
         Paciente paciente = crearPaciente("PX999", "Nadie", 30);
 
         assertThrows(PacienteNoEncontradoException.class,
@@ -145,9 +167,26 @@ class PacienteServiceTest {
     }
 
     @Test
+    void soloPermiteTransicionesValidasDeEstado() {
+        simularGuardado();
+        when(pacienteRepository.existsByCodigoIgnoreCase("PX030")).thenReturn(false);
+        pacienteService.registrarPaciente(crearPaciente("PX030", "Paciente", 30));
+
+        assertThrows(IllegalArgumentException.class,
+                () -> pacienteService.cambiarEstado("PX030", "ATENDIDO"));
+        assertEquals("EN_ATENCION",
+                pacienteService.cambiarEstado("PX030", "EN_ATENCION").getEstado());
+        assertEquals("ATENDIDO",
+                pacienteService.cambiarEstado("PX030", "ATENDIDO").getEstado());
+        assertThrows(IllegalArgumentException.class,
+                () -> pacienteService.cambiarEstado("PX030", "CANCELADO"));
+    }
+
+    @Test
     void eliminarPacienteExistenteLoQuitaDeLaBaseYDeLaTablaHash() {
         simularGuardado();
-        when(pacienteRepository.existsById("PX001")).thenReturn(false, true);
+        when(pacienteRepository.existsByCodigoIgnoreCase("PX001")).thenReturn(false);
+        when(pacienteRepository.existsById("PX001")).thenReturn(true);
         pacienteService.registrarPaciente(crearPaciente("PX001", "Carlos", 25));
 
         assertTrue(pacienteService.eliminarPaciente("PX001"));

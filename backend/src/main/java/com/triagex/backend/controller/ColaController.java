@@ -3,10 +3,7 @@ package com.triagex.backend.controller;
 import com.triagex.backend.model.Paciente;
 import com.triagex.backend.service.ColaAtencionService;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -30,8 +27,14 @@ public class ColaController {
         return ResponseEntity.ok(colaAtencionService.listarOrdenDeLlegada());
     }
 
+    /** Saca al más prioritario de pendientes y lo marca EN_ATENCION. */
     @PostMapping("/atender")
     public ResponseEntity<Paciente> atenderSiguiente() {
         return ResponseEntity.ok(colaAtencionService.atenderSiguiente());
+    }
+
+    @PostMapping("/{codigo}/finalizar")
+    public ResponseEntity<Paciente> finalizarAtencion(@PathVariable String codigo) {
+        return ResponseEntity.ok(colaAtencionService.finalizarAtencion(codigo));
     }
 }

@@ -5,6 +5,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 
 import java.util.Map;
@@ -26,6 +27,13 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(Map.of("error", excepcion.getMessage()));
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<Map<String, String>> manejarConflictoDePersistencia(
+            DataIntegrityViolationException excepcion) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(Map.of("error", "El código del paciente ya existe o viola una restricción de integridad"));
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

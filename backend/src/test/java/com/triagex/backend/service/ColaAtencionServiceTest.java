@@ -9,9 +9,13 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -23,11 +27,30 @@ class ColaAtencionServiceTest {
     private PacienteService pacienteService;
 
     private ColaAtencionService crearServicio(Paciente... guardados) {
-        lenient().when(pacienteService.listarPacientes()).thenReturn(List.of(guardados));
+        Map<String, Paciente> almacen = new LinkedHashMap<>();
+        for (Paciente paciente : guardados) almacen.put(paciente.getCodigo(), paciente);
+
+        lenient().when(pacienteService.listarPacientes())
+                .thenAnswer(invocacion -> new ArrayList<>(almacen.values()));
         lenient().when(pacienteService.registrarPaciente(any(Paciente.class)))
-                .thenAnswer(invocacion -> invocacion.getArgument(0));
+                .thenAnswer(invocacion -> {
+                    Paciente paciente = invocacion.getArgument(0);
+                    almacen.put(paciente.getCodigo(), paciente);
+                    return paciente;
+                });
         lenient().when(pacienteService.actualizarPaciente(any(Paciente.class)))
-                .thenAnswer(invocacion -> invocacion.getArgument(0));
+                .thenAnswer(invocacion -> {
+                    Paciente paciente = invocacion.getArgument(0);
+                    almacen.put(paciente.getCodigo(), paciente);
+                    return paciente;
+                });
+        lenient().when(pacienteService.cambiarEstado(anyString(), anyString()))
+                .thenAnswer(invocacion -> {
+                    Paciente paciente = almacen.get(invocacion.getArgument(0));
+                    if (paciente == null) throw new IllegalArgumentException("No existe");
+                    paciente.setEstado(invocacion.getArgument(1));
+                    return paciente;
+                });
         return new ColaAtencionService(pacienteService);
     }
 
@@ -97,7 +120,7 @@ class ColaAtencionServiceTest {
     }
 
     @Test
-    void atenderSacaAlMasUrgenteLoMarcaAtendidoYLoGuarda() {
+    void atenderSacaAlMasUrgenteYLoMarcaEnAtencion() {
         ColaAtencionService servicio = crearServicio();
         servicio.registrarPaciente(pendiente("PX1", 3, 0));
         Paciente urgente = servicio.registrarPaciente(pendiente("PX2", 1, 1));
@@ -106,8 +129,8 @@ class ColaAtencionServiceTest {
         Paciente atendido = servicio.atenderSiguiente();
 
         assertEquals("PX2", atendido.getCodigo());
-        assertEquals("ATENDIDO", atendido.getEstado());
-        verify(pacienteService).actualizarPaciente(urgente);
+        assertEquals("EN_ATENCION", atendido.getEstado());
+        verify(pacienteService).cambiarEstado("PX2", "EN_ATENCION");
         assertEquals(List.of("PX1", "PX3"), codigos(servicio.listarColaDeAtencion()));
         assertEquals(List.of("PX1", "PX3"), codigos(servicio.listarOrdenDeLlegada()));
     }
@@ -134,8 +157,8 @@ class ColaAtencionServiceTest {
     void siFallaElGuardadoAlAtenderElPacienteSigueEnLaCola() {
         ColaAtencionService servicio = crearServicio();
         servicio.registrarPaciente(pendiente("PX1", 1, 0));
-        when(pacienteService.actualizarPaciente(any(Paciente.class)))
-                .thenThrow(new RuntimeException("Base de datos no disponible"));
+        doThrow(new RuntimeException("Base de datos no disponible"))
+                .when(pacienteService).cambiarEstado("PX1", "EN_ATENCION");
 
         assertThrows(RuntimeException.class, servicio::atenderSiguiente);
 
@@ -183,26 +206,28 @@ class ColaAtencionServiceTest {
     }
 
     @Test
-    void marcarAtendidoDesdeLaEdicionLoSacaDeAmbasColas() {
+    void finalizarAtencionCambiaEstadoSinReingresarALasColas() {
         ColaAtencionService servicio = crearServicio();
-        Paciente px1 = servicio.registrarPaciente(pendiente("PX1", 2, 0));
-        servicio.registrarPaciente(pendiente("PX2", 3, 1));
+        servicio.registrarPaciente(pendiente("PX1", 2, 0));
+        servicio.atenderSiguiente();
 
-        servicio.actualizarPaciente(copiaCon(px1, "NIVEL 2", "ATENDIDO"));
+        Paciente finalizado = servicio.finalizarAtencion("PX1");
 
-        assertEquals(List.of("PX2"), codigos(servicio.listarColaDeAtencion()));
-        assertEquals(List.of("PX2"), codigos(servicio.listarOrdenDeLlegada()));
+        assertEquals("ATENDIDO", finalizado.getEstado());
+        assertTrue(servicio.listarColaDeAtencion().isEmpty());
+        assertTrue(servicio.listarOrdenDeLlegada().isEmpty());
     }
 
     @Test
-    void volverAPendienteLoReingresaALasColas() {
-        ColaAtencionService servicio = crearServicio(paciente("PX1", 2, 0, "ATENDIDO"));
+    void cancelarPacienteLoMarcaCanceladoYLoRetiraDeLasColas() {
+        ColaAtencionService servicio = crearServicio();
+        servicio.registrarPaciente(pendiente("PX1", 2, 0));
+
+        Paciente cancelado = servicio.cancelarPaciente("PX1");
+
+        assertEquals("CANCELADO", cancelado.getEstado());
         assertTrue(servicio.listarColaDeAtencion().isEmpty());
-
-        servicio.actualizarPaciente(paciente("PX1", 2, 0, "PENDIENTE"));
-
-        assertEquals(List.of("PX1"), codigos(servicio.listarColaDeAtencion()));
-        assertEquals(List.of("PX1"), codigos(servicio.listarOrdenDeLlegada()));
+        assertTrue(servicio.listarOrdenDeLlegada().isEmpty());
     }
 
     @Test
