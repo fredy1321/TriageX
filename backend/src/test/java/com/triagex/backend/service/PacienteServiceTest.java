@@ -49,7 +49,7 @@ class PacienteServiceTest {
     @Test
     void registrarPacienteValidoLoGuardaComoPendienteYQuedaEnLaTablaHash() {
         simularGuardado();
-        when(pacienteRepository.existsById("PX001")).thenReturn(false);
+        when(pacienteRepository.existsByCodigoIgnoreCase("PX001")).thenReturn(false);
 
         Paciente registrado = pacienteService.registrarPaciente(crearPaciente("PX001", "Carlos", 25));
 
@@ -60,7 +60,7 @@ class PacienteServiceTest {
 
     @Test
     void registrarPacienteDuplicadoLanzaExcepcionYNoGuarda() {
-        when(pacienteRepository.existsById("PX001")).thenReturn(true);
+        when(pacienteRepository.existsByCodigoIgnoreCase("PX001")).thenReturn(true);
         Paciente paciente = crearPaciente("PX001", "Carlos", 25);
 
         IllegalArgumentException error = assertThrows(
@@ -104,7 +104,7 @@ class PacienteServiceTest {
     @Test
     void registrarPacienteConEdadCeroEsValido() {
         simularGuardado();
-        when(pacienteRepository.existsById("PX002")).thenReturn(false);
+        when(pacienteRepository.existsByCodigoIgnoreCase("PX002")).thenReturn(false);
 
         Paciente registrado = pacienteService.registrarPaciente(crearPaciente("PX002", "Bebé", 0));
 
@@ -114,7 +114,7 @@ class PacienteServiceTest {
     @Test
     void actualizarPacienteExistenteActualizaLaTablaHash() {
         simularGuardado();
-        when(pacienteRepository.existsById("PX001")).thenReturn(false, true);
+        when(pacienteRepository.existsByCodigoIgnoreCase("PX001")).thenReturn(false);\n        when(pacienteRepository.existsById("PX001")).thenReturn(true);
         pacienteService.registrarPaciente(crearPaciente("PX001", "Carlos", 25));
 
         Paciente cambios = crearPaciente("PX001", "Carlos Andrés", 26);
