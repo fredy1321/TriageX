@@ -157,8 +157,8 @@ class ColaAtencionServiceTest {
     void siFallaElGuardadoAlAtenderElPacienteSigueEnLaCola() {
         ColaAtencionService servicio = crearServicio();
         servicio.registrarPaciente(pendiente("PX1", 1, 0));
-        when(pacienteService.cambiarEstado("PX1", "EN_ATENCION"))
-                .thenThrow(new RuntimeException("Base de datos no disponible"));
+        doThrow(new RuntimeException("Base de datos no disponible"))
+                .when(pacienteService).cambiarEstado("PX1", "EN_ATENCION");
 
         assertThrows(RuntimeException.class, servicio::atenderSiguiente);
 
