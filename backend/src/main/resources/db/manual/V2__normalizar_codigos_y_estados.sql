@@ -48,6 +48,6 @@ BEGIN
     ) THEN
         ALTER TABLE pacientes
         ADD CONSTRAINT ck_pacientes_estado
-        CHECK (estado IN ('PENDIENTE', 'EN_ATENCION', 'ATENDIDO', 'CANCELADO'));
+        CHECK (estado IS NOT NULL AND estado IN ('PENDIENTE', 'EN_ATENCION', 'ATENDIDO', 'CANCELADO'));
     END IF;
 END $$;
