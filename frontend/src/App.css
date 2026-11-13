@@ -252,3 +252,18 @@ button:disabled {
   font-size: 13px;
   color: var(--texto-suave);
 }
+
+.orden-llegada {
+  margin-top: 16px;
+  font-size: 14px;
+}
+
+.orden-llegada summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.orden-llegada ol {
+  margin: 8px 0 0;
+  padding-left: 24px;
+}

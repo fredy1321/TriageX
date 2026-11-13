@@ -2,6 +2,7 @@
 package com.triagex.backend.controller;
 
 import com.triagex.backend.model.Paciente;
+import com.triagex.backend.service.ColaAtencionService;
 import com.triagex.backend.service.PacienteService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -17,9 +18,12 @@ import java.util.List;
 public class PacienteController {
 
     private final PacienteService pacienteService;
+    private final ColaAtencionService colaAtencionService;
 
-    public PacienteController(PacienteService pacienteService) {
+    public PacienteController(PacienteService pacienteService,
+                              ColaAtencionService colaAtencionService) {
         this.pacienteService = pacienteService;
+        this.colaAtencionService = colaAtencionService;
     }
 
     @PostMapping
@@ -35,7 +39,7 @@ public class PacienteController {
                 "PENDIENTE"
         );
 
-        Paciente registrado = pacienteService.registrarPaciente(paciente);
+        Paciente registrado = colaAtencionService.registrarPaciente(paciente);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(registrado);
     }
@@ -64,7 +68,7 @@ public class PacienteController {
             );
         }
 
-        Paciente actualizado = pacienteService.actualizarPaciente(paciente);
+        Paciente actualizado = colaAtencionService.actualizarPaciente(paciente);
 
         return ResponseEntity.ok(actualizado);
     }
@@ -72,7 +76,7 @@ public class PacienteController {
     @DeleteMapping("/{codigo}")
     public ResponseEntity<Void> eliminarPaciente(@PathVariable String codigo) {
 
-        boolean eliminado = pacienteService.eliminarPaciente(codigo);
+        boolean eliminado = colaAtencionService.eliminarPaciente(codigo);
 
         if (!eliminado) {
             return ResponseEntity.notFound().build();

@@ -22,6 +22,10 @@ async function request<T>(ruta: string, opciones: RequestInit = {}): Promise<T> 
     throw new ApiError(0, 'No se pudo conectar con el servidor. ¿Está encendido el backend?')
   }
 
+  if (respuesta.status === 502 || respuesta.status === 503 || respuesta.status === 504) {
+    throw new ApiError(respuesta.status, 'No se pudo conectar con el servidor. ¿Está encendido el backend?')
+  }
+
   if (!respuesta.ok) {
     let mensaje = `Error ${respuesta.status}`
     try {
@@ -66,4 +70,8 @@ export function obtenerCola() {
 
 export function atenderSiguiente() {
   return request<Paciente>('/cola/atender', { method: 'POST' })
+}
+
+export function obtenerOrdenLlegada() {
+  return request<Paciente[]>('/cola/llegada')
 }

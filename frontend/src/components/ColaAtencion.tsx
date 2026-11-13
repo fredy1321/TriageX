@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { ApiError, atenderSiguiente, obtenerCola } from '../services/api'
+import { ApiError, atenderSiguiente, obtenerCola, obtenerOrdenLlegada } from '../services/api'
 import type { Paciente } from '../types/paciente'
 import { formatearFecha, mensajeDeError } from '../utils/validaciones'
 
@@ -16,15 +16,17 @@ function mensajeCola(err: unknown): string {
 
 export default function ColaAtencion({ onCambio }: Props) {
   const [cola, setCola] = useState<Paciente[]>([])
+  const [llegada, setLlegada] = useState<Paciente[]>([])
   const [atendido, setAtendido] = useState<Paciente | null>(null)
   const [error, setError] = useState('')
   const [cargando, setCargando] = useState(true)
   const [atendiendo, setAtendiendo] = useState(false)
 
   const cargarCola = useCallback(() => {
-    return obtenerCola()
-      .then((datos) => {
-        setCola(datos)
+    return Promise.all([obtenerCola(), obtenerOrdenLlegada()])
+      .then(([datosCola, datosLlegada]) => {
+        setCola(datosCola)
+        setLlegada(datosLlegada)
         setError('')
       })
       .catch((err: unknown) => setError(mensajeCola(err)))
@@ -84,6 +86,19 @@ export default function ColaAtencion({ onCambio }: Props) {
             </li>
           ))}
         </ol>
+      )}
+
+      {llegada.length > 0 && (
+        <details className="orden-llegada">
+          <summary>Orden de llegada ({llegada.length})</summary>
+          <ol>
+            {llegada.map((p) => (
+              <li key={p.codigo}>
+                {p.codigo} · {p.nombre} · {formatearFecha(p.fechaHoraLlegada)} · {p.prioridad}
+              </li>
+            ))}
+          </ol>
+        </details>
       )}
     </section>
   )
