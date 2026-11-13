@@ -68,7 +68,7 @@ export default function ColaAtencion({ onCambio }: Props) {
 
       {atendido && (
         <p className="mensaje exito">
-          Atendido: {atendido.codigo} · {atendido.nombre} ({atendido.prioridad})
+          En atención: {atendido.codigo} · {atendido.nombre} ({atendido.prioridad})
         </p>
       )}
       {error && <p className="mensaje error">{error}</p>}
