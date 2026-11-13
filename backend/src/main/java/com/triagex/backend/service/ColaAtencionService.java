@@ -50,6 +50,7 @@ public class ColaAtencionService {
     }
 
     public synchronized Paciente registrarPaciente(Paciente paciente) {
+        if (paciente == null) throw new IllegalArgumentException("El paciente no puede ser nulo");
         ComparadorPrioridad.nivelNumerico(paciente.getPrioridad());
         Paciente registrado = pacienteService.registrarPaciente(paciente);
         long inicio = System.nanoTime();
@@ -90,6 +91,7 @@ public class ColaAtencionService {
 
     /** Solo modifica datos/prioridad mientras el paciente está PENDIENTE. */
     public synchronized Paciente actualizarPaciente(Paciente paciente) {
+        if (paciente == null) throw new IllegalArgumentException("El paciente no puede ser nulo");
         ComparadorPrioridad.nivelNumerico(paciente.getPrioridad());
         String codigo = PacienteService.normalizarCodigo(paciente.getCodigo());
         String prioridadAnterior = colaPrioridad.buscar(codigo)
