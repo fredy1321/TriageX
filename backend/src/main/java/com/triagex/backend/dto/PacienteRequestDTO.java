@@ -9,7 +9,7 @@ import java.time.LocalDateTime;
 
 public record PacienteRequestDTO(
         @NotBlank(message = "El código es obligatorio")
-        @Pattern(regexp = "[A-Za-z0-9-]{1,20}", message = "El código solo puede contener letras, números o guiones (máximo 20)")
+        @Pattern(regexp = "\\s*[A-Za-z0-9-]{1,20}\\s*", message = "El código solo puede contener letras, números o guiones (máximo 20)")
         String codigo,
 
         @NotBlank(message = "El nombre es obligatorio")
