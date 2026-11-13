@@ -22,7 +22,7 @@ import java.util.Optional;
 public class ColaFIFOPacientes {
 
     private static class Nodo {
-        private final Paciente paciente;
+        private Paciente paciente;
         private Nodo siguiente;
 
         Nodo(Paciente paciente) {
@@ -95,6 +95,20 @@ public class ColaFIFOPacientes {
             }
             anterior = actual;
             actual = actual.siguiente;
+        }
+        return false;
+    }
+
+    /** Reemplaza los datos del paciente conservando su posición de llegada. O(n). */
+    public boolean actualizar(Paciente pacienteActualizado) {
+        if (pacienteActualizado == null || pacienteActualizado.getCodigo() == null) {
+            return false;
+        }
+        for (Nodo n = frente; n != null; n = n.siguiente) {
+            if (n.paciente.getCodigo().equals(pacienteActualizado.getCodigo())) {
+                n.paciente = pacienteActualizado;
+                return true;
+            }
         }
         return false;
     }
