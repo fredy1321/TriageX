@@ -5,6 +5,8 @@ import com.triagex.backend.model.Paciente;
 import com.triagex.backend.repository.PacienteRepository;
 import com.triagex.backend.structures.TablaHashPacientes;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.HashSet;
 import java.util.List;
@@ -14,6 +16,8 @@ import java.util.Set;
 
 @Service
 public class PacienteService {
+
+    private static final Logger log = LoggerFactory.getLogger(PacienteService.class);
 
     private final PacienteRepository pacienteRepository;
     private final TablaHashPacientes tablaHashPacientes;
@@ -57,7 +61,7 @@ public class PacienteService {
                 origen.getEdad(), origen.getPrioridad(), estado);
     }
 
-    public Paciente registrarPaciente(Paciente paciente) {
+    public synchronized Paciente registrarPaciente(Paciente paciente) {
         if (paciente == null) {
             throw new IllegalArgumentException("El paciente no puede ser nulo");
         }
@@ -72,6 +76,7 @@ public class PacienteService {
             throw new IllegalArgumentException("La fecha de llegada es obligatoria");
         }
         if (pacienteRepository.existsByCodigoIgnoreCase(codigo) || tablaHashPacientes.buscar(codigo).isPresent()) {
+            log.warn("Registro rechazado: código duplicado {}", codigo);
             throw new IllegalArgumentException("Ya existe un paciente activo con el código " + codigo);
         }
 
@@ -82,7 +87,7 @@ public class PacienteService {
     }
 
     /** Solo permite editar y reevaluar pacientes que continúan pendientes. */
-    public Paciente actualizarPaciente(Paciente cambios) {
+    public synchronized Paciente actualizarPaciente(Paciente cambios) {
         if (cambios == null) {
             throw new IllegalArgumentException("El paciente no puede ser nulo");
         }
@@ -111,7 +116,7 @@ public class PacienteService {
         return guardado;
     }
 
-    public Paciente cambiarEstado(String codigoEntrada, String nuevoEstado) {
+    public synchronized Paciente cambiarEstado(String codigoEntrada, String nuevoEstado) {
         String codigo = normalizarCodigo(codigoEntrada);
         Paciente actual = tablaHashPacientes.buscar(codigo)
                 .orElseThrow(() -> new PacienteNoEncontradoException("No existe un paciente con código " + codigo));
@@ -129,13 +134,14 @@ public class PacienteService {
 
         Paciente cambiado = copiar(actual, codigo, nuevoEstado);
         Paciente guardado = pacienteRepository.save(cambiado);
+        log.info("Estado del paciente {}: {} -> {}", codigo, actual.getEstado(), nuevoEstado);
         if (!tablaHashPacientes.actualizar(guardado)) {
             throw new IllegalStateException("No fue posible sincronizar la tabla hash");
         }
         return guardado;
     }
 
-    public boolean eliminarPaciente(String codigoEntrada) {
+    public synchronized boolean eliminarPaciente(String codigoEntrada) {
         String codigo = normalizarCodigo(codigoEntrada);
         if (!pacienteRepository.existsById(codigo)) {
             return false;
