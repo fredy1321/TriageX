@@ -72,6 +72,14 @@ export function atenderSiguiente() {
   return request<Paciente>('/cola/atender', { method: 'POST' })
 }
 
+export function finalizarAtencion(codigo: string) {
+  return request<Paciente>(`/cola/${encodeURIComponent(codigo)}/finalizar`, { method: 'POST' })
+}
+
+export function cancelarPaciente(codigo: string) {
+  return request<Paciente>(`/pacientes/${encodeURIComponent(codigo)}/cancelar`, { method: 'POST' })
+}
+
 export function obtenerOrdenLlegada() {
   return request<Paciente[]>('/cola/llegada')
 }
